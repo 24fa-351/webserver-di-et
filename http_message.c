@@ -1,4 +1,6 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "http_message.h"
 
 void read_http_client_message(int sock_fd, http_client_message_t** msg, http_read_result_t* result)
@@ -8,7 +10,7 @@ void read_http_client_message(int sock_fd, http_client_message_t** msg, http_rea
     if (bytes_read == -1)
     {
         perror("read\n");
-        return 1;
+        return;
     }
 
     buffer[bytes_read] = '\0';
@@ -19,8 +21,6 @@ void read_http_client_message(int sock_fd, http_client_message_t** msg, http_rea
         *result = BAD_REQUEST;
         return;
     }
-
-    *result = CLOSE_CONNECTION;
 }
 void http_client_message_free(http_client_message_t* msg)
 {
