@@ -9,17 +9,13 @@
 #include <sys/socket.h>
 #include <stdbool.h>
 
+#include "http_response.h"
 #include "http_message.h"
+#include "router.h"
 
 #define DEFAULT_PORT 80
 #define LISTEN_BACKLOG 5
 
-int respond_to_http_client_message(int sock_fd, http_client_message_t* http_msg)
-{
-    char* response = "HTTP/1.1 200 OK \r\nContent-Length: 0\r\n\r\n";
-    write(sock_fd, response, strlen(response));
-    return 0;
-}
 
 void handle_connection(int* sock_fd_ptr)
 {
@@ -38,15 +34,28 @@ void handle_connection(int* sock_fd_ptr)
         {
             printf("Bad request\n");
             close(sock_fd);
-            return;
+            break;
         } else if (result == CLOSE_CONNECTION)
         {
             printf("Close connection\n");
             close(sock_fd);
-            return;
+            break;
         }
-        respond_to_http_client_message(sock_fd, http_msg);
+        printf("do I get past the if if else\n");
+        http_response_t *rsp = generate_response(http_msg);
+
         http_client_message_free(http_msg);
+        if (!rsp)
+        {
+            break;
+        }
+        bool send_was_successful = response_send(rsp, sock_fd);
+        response_free(rsp);
+        if(send_was_successful == false)
+        {
+            break;
+        }
+
     }
     printf("done with connection %d\n", sock_fd);
     close(sock_fd);
@@ -56,6 +65,27 @@ int main(int argc, char *argv[])
 {
     // Default port
     int port = DEFAULT_PORT;
+        if (argc == 2 && !strcmp(argv[1], "--request")) {
+        printf("Reading ONE request from stdin\n");
+
+        // Request* req = request_read_from_fd(0);
+        // if (req == NULL) {
+        //     printf("Failed to read request\n");
+        //     exit(1);
+        // }
+        // request_print(req);
+        // request_free(req);
+        exit(0);
+    }
+    if (argc == 2 && !strcmp(argv[1], "--handle")) {
+        printf("Handling ONE connection from stdin\n");
+        int* sock_fd = malloc(sizeof(int));
+        *sock_fd = 0;
+        handle_connection(sock_fd);
+        printf("Done handling connection\n");
+        exit(0);
+    }
+
     if (argc == 3 && strcmp(argv[1], "-p") == 0)
     {
         port = atoi(argv[2]);

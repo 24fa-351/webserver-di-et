@@ -24,4 +24,5 @@ void read_http_client_message(int client_sock, http_client_message_t** msg, http
 
 void http_client_message_free(http_client_message_t* msg);
 
+void write_http_client_message(http_client_message_t* msg);
 #endif

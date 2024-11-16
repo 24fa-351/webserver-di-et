@@ -1,8 +1,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "http_message.h"
+#include <stdbool.h>
 
+
+#include "http_response.h"
+
+
+
+void response_free(http_response_t* msg)
+{
+    printf("freeing\n");
+}
+
+void response_print(http_response_t* msg)
+{
+    printf("print\n");
+}
+
+
+bool response_send(http_response_t* msg, int fd)
+{
+    printf("send\n");
+    return true;
+}
+
+#if 0
 void read_http_client_message(int sock_fd, http_client_message_t** msg, http_read_result_t* result)
 {
     char buffer[1024];
@@ -35,3 +58,4 @@ void http_client_message_free(http_client_message_t* msg)
     printf("freeing request\n");
     free(msg);
 }
+#endif
