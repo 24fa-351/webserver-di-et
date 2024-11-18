@@ -3,23 +3,19 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-
 #include "http_response.h"
 
-
-
-void response_free(http_response_t* msg)
+void response_free(http_server_response_t* msg)
 {
     printf("freeing\n");
 }
 
-void response_print(http_response_t* msg)
+void response_print(http_server_response_t* msg)
 {
     printf("print\n");
 }
 
-
-bool response_send(http_response_t* msg, int fd)
+bool response_send(http_server_response_t* msg, int fd)
 {
     printf("send\n");
     return true;
