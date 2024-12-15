@@ -12,6 +12,8 @@ typedef struct msg
     char* method;
     char* path;
     char* http_version;
+    char* body;
+    int body_length;
     int header_count;
     Header* headers;
 }http_client_message_t;

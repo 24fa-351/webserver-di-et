@@ -7,51 +7,41 @@
 
 void response_free(http_server_response_t* msg)
 {
-    printf("freeing\n");
+    printf("freeing response\n");
+    free(msg);
 }
 
 void response_print(http_server_response_t* msg)
 {
-    printf("print\n");
+    if(msg->body)
+    {
+        printf("body: %s\n", msg->body);
+    }
+    if(msg->http_version)
+    {
+        printf("http version: %s\n", msg->http_version);
+    }
+    if (msg->status_code)
+    {
+        printf("status code: %d\n", msg->status_code);
+    }
+    if (msg->body_length)
+    {
+        printf("body length: %d\n", msg->body_length);
+    }    
 }
 
+// responses: a message, bad request, closed connection
 bool response_send(http_server_response_t* msg, int fd)
 {
-    printf("send\n");
+    if (msg == NULL)
+    {
+        return false;
+    }
+    dprintf(fd, "%s %d OK\n", msg->http_version, msg->status_code);
+    dprintf(fd, "Content-Length: %d\n", msg->body_length);
+    write(fd, "\n", 1);
+    write(fd, msg->body, msg->body_length);
     return true;
 }
-
-#if 0
-void read_http_client_message(int sock_fd, http_client_message_t** msg, http_read_result_t* result)
-{
-    char buffer[1024];
-    int bytes_read = read(sock_fd, buffer, sizeof(buffer));
-    if (bytes_read == -1)
-    {
-        perror("read\n");
-        *result = BAD_REQUEST;
-        return;
-    }
-
-    buffer[bytes_read] = '\0';
-    printf("recieved %d bytes: %s\n", bytes_read, buffer);
-    
-    *msg = malloc(sizeof(http_client_message_t));
-    if(*msg == NULL)
-    {
-        *result = BAD_REQUEST;
-        return;
-    }
-}
-
-void print_http_client_message()
-{
-    printf("printing request\n");
-}
-
-void http_client_message_free(http_client_message_t* msg)
-{
-    printf("freeing request\n");
-    free(msg);
-}
-#endif
+// Compare this snippet from webserver-di-et/router.h:

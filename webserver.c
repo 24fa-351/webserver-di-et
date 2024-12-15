@@ -16,32 +16,31 @@
 #define DEFAULT_PORT 80
 #define LISTEN_BACKLOG 5
 
+int number_of_requests = 0;
+
 void handle_connection(int *sock_fd_ptr)
 {
     int sock_fd = *sock_fd_ptr;
     free(sock_fd_ptr);
 
-    printf("handling connection on %d\n", sock_fd);
+    printf("handling connection on '%d'\n", sock_fd);
     while (1)
     {
-        http_client_message_t *http_msg = read_http_client_message(sock_fd);
-
-        if (http_msg == NULL)
+        http_client_message_t* http_msg = read_http_client_message(sock_fd);
+        if (http_msg == NULL) 
         {
             printf("Failed to read request\n");
             break;
         }
+        number_of_requests++;
+
         print_http_client_message(http_msg);
-
-        free_http_client_message(http_msg);
-
-        http_server_response_t *rsp = generate_response(http_msg);
-
-        printf("||  do I make it to this marker?!   ||\n");
+        http_server_response_t* rsp = generate_response(http_msg);
         if (!rsp)
         {
             break;
         }
+        
         bool send_was_successful = response_send(rsp, sock_fd);
         response_free(rsp);
         if (send_was_successful == false)
@@ -55,21 +54,10 @@ void handle_connection(int *sock_fd_ptr)
 
 int main(int argc, char *argv[])
 {
-    // Default port
     int port = DEFAULT_PORT;
     if (argc == 2 && !strcmp(argv[1], "--request"))
     {
         http_client_message_t* msg = read_http_client_message(0);
-        printf("Reading ONE request from stdin\n");
-        print_http_client_message(msg);
-
-        // Request* req = request_read_from_fd(0);
-        // if (req == NULL) {
-        //     printf("Failed to read request\n");
-        //     exit(1);
-        // }
-        // request_print(req);
-        // request_free(req);
         exit(0);
     }
     if (argc == 2 && !strcmp(argv[1], "--handle"))
@@ -139,10 +127,3 @@ int main(int argc, char *argv[])
     }
     return 0;
 }
-
-/*
-1. different protocol -> HTTP instead of echo
-2. implement the various routes (/static)
-3. create html to return (inital / debug) -> "return content"
-4. be graceful (errors, or at the end of connection)
-*/

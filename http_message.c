@@ -7,33 +7,37 @@
 
 #include "http_message.h"
 
-bool read_request_line(http_client_message_t*msg, int sock_fd);
-bool read_headers(http_client_message_t* msg, int sock_fd);
-bool read_body(http_client_message_t* msg, int sock_fd);
+bool read_request_line(http_client_message_t *msg, int sock_fd);
+bool read_headers(http_client_message_t *msg, int sock_fd);
+bool read_body(http_client_message_t *msg, int sock_fd);
+char* get_header_value(http_client_message_t* msg, char* key);
 
 http_client_message_t *read_http_client_message(int sock_fd)
 {
-    printf("Reading request from sock_fd %d \n", sock_fd);
+    printf("http_client_message_t sock_fd '%d'\n", sock_fd);
 
     http_client_message_t *msg = malloc(sizeof(http_client_message_t));
 
     if (read_request_line(msg, sock_fd) == false)
     {
-        printf("Failed to read request line\n");
+        printf("Failed to read request line(http_message.c, 1st if statement)\n");
         free_http_client_message(msg);
         return NULL;
     }
+
     // read_headers also eats the second CRLF
     if (read_headers(msg, sock_fd) == false)
     {
-        printf("Failed to read headers\n");
+        printf("Failed to read headers(http_message.c, 2nd if statement)\n");
         free_http_client_message(msg);
         return NULL;
     }
+
     if (read_body(msg, sock_fd) == false)
     {
-        printf("Failed to read body\n");
-        free(msg);
+        printf("Failed to read body(http_message.c, 3rd if statement)\n");
+        free_http_client_message(msg);
+        // free(msg);
         return NULL;
     }
     return msg;
@@ -41,14 +45,11 @@ http_client_message_t *read_http_client_message(int sock_fd)
 
 void print_http_client_message(http_client_message_t *msg)
 {
-    printf("-~-~-~-~-~-~-~-~-~Client_Message-~-~-~-~-~-~-~-~-~\n");
-
+    printf("-~-~-Client_Message_TOP-~-~\n");
     if (msg->method)
     {
-        printf("||did I make it to this marker?||\n");
         printf("method: %s\n", msg->method);
     }
-
     if (msg->path)
     {
         printf("path: %s\n", msg->path);
@@ -61,17 +62,21 @@ void print_http_client_message(http_client_message_t *msg)
     {
         for (int ix = 0; ix < msg->header_count; ix++)
         {
-            printf("Header %d: %s: %s", ix, msg->headers[ix].key, msg->headers[ix].value);
+            printf("Header %d: %s = '%s'\n", ix, msg->headers[ix].key, msg->headers[ix].value);
         }
     }
-    printf("-~-~-~-~-~-~-~-~-~Client_Message-~-~-~-~-~-~-~-~-~\n");
+    printf("-~-~-Client_Message_BOTTOM-~-~-\n");
 }
 
-#define FREE_IF_NOT_NULL(ptr) if (ptr) {free(ptr);}
+#define FREE_IF_NOT_NULL(ptr) \
+    if (ptr)                  \
+    {                         \
+        free(ptr);            \
+    }
 void free_http_client_message(http_client_message_t *msg)
 {
-    printf("freeing request\n");
-    if(msg == NULL)
+    printf("free_http_client_message\n");
+    if (msg == NULL)
     {
         return;
     }
@@ -89,15 +94,14 @@ void free_http_client_message(http_client_message_t *msg)
     free(msg);
 }
 
-char* read_line(int sock_fd)
+char *read_line(int sock_fd)
 {
-    printf("Reading from sock_fd %d\n", sock_fd);
     char *line = malloc(10000);
     int len_read = 0;
     while (1)
     {
         char ch;
-        int number_bytes_read = read(sock_fd, &ch, 1);
+        int number_bytes_read = read(sock_fd, &ch, 1); 
         if (number_bytes_read <= 0)
         {
             return NULL;
@@ -115,16 +119,38 @@ char* read_line(int sock_fd)
         line[len_read - 1] = '\0';
     }
     line = realloc(line, len_read + 1);
-
+    printf(__FILE__ ": %d read line: '%s'\n", __LINE__ , line);
     return line;
 }
+
+char* get_header_value(http_client_message_t* msg, char* key)
+{
+    for (int ix = 0; ix < msg->header_count; ix++)
+    {
+        if (strcmp(msg->headers[ix].key, key) == 0)
+        {
+            return msg->headers[ix].value;
+        }
+    }
+    return NULL;
+}
+
 bool read_request_line(http_client_message_t *msg, int sock_fd)
 {
-    printf("Reading request line\n");
+    printf("read request line\n");
+
     char *line = read_line(sock_fd);
-    if (line == NULL)
+    while(1)
     {
-        return false;
+        if (line == NULL)
+        {
+            return false;
+        }
+        if (strlen(line) > 0)
+        {
+            break;
+        }
+        free(line);
     }
     msg->method = malloc(strlen(line) + 1);
     msg->path = malloc(strlen(line) + 1);
@@ -134,10 +160,12 @@ bool read_request_line(http_client_message_t *msg, int sock_fd)
     int number_parsed;
     number_parsed = sscanf(line, "%s %s %s%n", msg->method, msg->path, msg->http_version, &length_parsed);
 
+
+
     if (number_parsed != 3 || length_parsed != strlen(line))
     {
-        printf("Failed to parse request line\n");
-        free(line);
+        printf("%d parsed, %d length parsed, %lu line len\n", number_parsed, length_parsed, strlen(line));
+        printf("Failed to parse request line(http_message.c)\n");
         return false;
     }
     if (strcmp(msg->method, "GET") != 0 && strcmp(msg->method, "POST") != 0)
@@ -146,133 +174,92 @@ bool read_request_line(http_client_message_t *msg, int sock_fd)
         free(line);
         return false;
     }
-
     return true;
 }
 
-bool read_headers(http_client_message_t* msg, int sock_fd)
+bool read_headers(http_client_message_t *msg, int sock_fd)
 {
-    printf("Reading headers\n");
     msg->headers = malloc(sizeof(Header) * 100);
     msg->header_count = 0;
     while (1)
     {
-        char* line = read_line(sock_fd);
-        if(line == NULL)
+        char *line = read_line(sock_fd);
+        if (line == NULL)
         {
             // close connection or error
             return false;
         }
-        if(strlen(line) == 0)
+        if (strlen(line) == 0)
         {
             free(line);
             break;
         }
+        
         msg->headers[msg->header_count].key = malloc(10000);
         msg->headers[msg->header_count].value = malloc(10000);
+
         int number_parsed;
         int length_parsed;
-        number_parsed = sscanf(line, "%s: %s%n", msg->headers[msg->header_count].key, msg->headers[msg->header_count].value, &length_parsed);
+
+        number_parsed = sscanf(line, "%s %s %n", msg->headers[msg->header_count].key, msg->headers[msg->header_count].value, &length_parsed);
         if (number_parsed != 2 || length_parsed != strlen(line))
         {
-            printf("Failed to parse header\n");
+            printf("Failed to parse header(read_headers();)\n");
             free(line);
             return false;
         }
-        
-        msg->headers[msg->header_count].key = realloc(msg->headers[msg->header_count].key, strlen(msg->headers[msg->header_count].key) + 1);
-        msg->headers[msg->header_count].key = realloc(msg->headers[msg->header_count].value, strlen(msg->headers[msg->header_count].value) + 1);
 
+        if (msg->headers[msg->header_count].key[strlen(msg->headers[msg->header_count].key) - 1] == ':')
+        {
+            msg->headers[msg->header_count].key[strlen(msg->headers[msg->header_count].key) - 1] = '\0';
+        }
+
+        printf("key: '%s' '%s' \n", msg->headers[msg->header_count].key, msg->headers[msg->header_count].value);
+
+        msg->headers[msg->header_count].key = realloc(msg->headers[msg->header_count].key, strlen(msg->headers[msg->header_count].key) + 1);
+        msg->headers[msg->header_count].value = realloc(msg->headers[msg->header_count].value, strlen(msg->headers[msg->header_count].value) + 1);
 
         msg->header_count++;
-        free(line);       
-    
+        free(line);
     }
-    
     return true;
 }
 
-bool read_body(http_client_message_t* msg, int sock_fd)
+bool read_body(http_client_message_t *msg, int sock_fd) //
 {
-    return true;
-}
+    printf("read_body\n");
 
-#if 0
-void read_http_client_message(int sock_fd, http_client_message_t** msg, http_read_result_t* result)
-{
-    char buffer[1024];
-    int bytes_read = read(sock_fd, buffer, sizeof(buffer));
-    if (bytes_read == -1)
+    msg->body = NULL;
+    msg->body_length = 0;
+
+    char *body_length_str = get_header_value(msg, "Content-Length");
+    printf("content_length_str: '%s'\n", body_length_str);
+
+    if (body_length_str == NULL)
     {
-        perror("read\n");
-        return;
+        return true;
     }
 
-    buffer[bytes_read] = '\0';
-    printf("recieved %d bytes: %s\n", bytes_read, buffer);
-    
-    *msg = malloc(sizeof(http_client_message_t));
-    if(*msg == NULL)
+    if(sscanf(body_length_str, "%d", &msg->body_length) != 1)
     {
-        return;
+        printf("Failed to parse body length\n");
+        return false;
     }
-}
-
-void print_http_client_message()
-{
-    printf("printing request\n");
-}
-
-void http_client_message_free(http_client_message_t* msg)
-{
-    printf("freeing request\n");
-    free(msg);
-}
-#endif
-
-/*
-number_parsed = sscanf(line, "%s %s %s%n", req->method, req->path, req->version, &length_parsed);
-req->method = malloc(strlen(line) + 1);
-    req->path = malloc(strlen(line) + 1);
-    req->version = malloc(strlen(line) + 1);
-bool read_request_line(Request* req, int fd);
-bool read_body(Request* req, int fd);
-
-Request* request_read_from_fd(int fd) {
-    printf("Reading request from fd %d\n", fd);
-
-    Request* req = malloc(sizeof(Request));
-
-    if (read_request_line(req, fd) == false) {
-        printf("Failed to read request line\n");
-        request_free(req);
-        return NULL;
+    if(msg->body_length == 0)
+    {
+        printf("no body\n");
+        return true;
     }
-    // read_headers also eats the second CRLF
-    req->headers = read_headers(fd);
-
-    if (req->headers == NULL) {
-        printf("Failed to read headers\n");
-        request_free(req);
-        return NULL;
-    }
-    if (read_body(req, fd) == false) {
+    msg->body = malloc(msg->body_length + 1);
+    int bytes_read = read(sock_fd, msg->body, msg->body_length);
+    if (bytes_read != msg->body_length)
+    {
         printf("Failed to read body\n");
-        request_free(req);
-        return NULL;
+        free(msg->body);
+        msg->body = NULL;
+        msg->body_length = 0;
+        return false;
     }
-
-    return req;
+    msg->body[msg->body_length] = '\0';
+    return true;
 }
-
-int number_bytes_read = read(fd, &ch, 1);
-        if (number_bytes_read <= 0) {
-            return NULL;
-        }
-char* read_http_line(int fd)
-
-if (ch == '\n') {
-            break;
-        }
-
-*/
